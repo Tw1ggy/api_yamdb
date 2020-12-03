@@ -1,5 +1,4 @@
 from rest_framework import serializers
-
 from .models import Comments, Reviews
 
 
@@ -11,7 +10,7 @@ class CommentsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Comments
-        fields = '__all__'
+        fields = ('id', 'text', 'author', 'pub_date')
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -21,5 +20,5 @@ class ReviewSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        fields = '__all__'
         model = Reviews
+        fields = ('id', 'text', 'author', 'score', 'pub_date')

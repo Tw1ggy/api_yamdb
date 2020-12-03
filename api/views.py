@@ -1,42 +1,54 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
-from rest_framework.filters import SearchFilter
+from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
 
-from .models import Reviews
+from titles.models import Title
+from .models import Reviews, Comments
 from .permissions import IsAdmin, IsAuthorOrReadOnly, IsModerator
 from .serializers import CommentsSerializer, ReviewSerializer
-
-
-class CommentViewSet(viewsets.ModelViewSet):
-    serializer_class = CommentsSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,
-                          IsAuthorOrReadOnly,
-                          IsAdmin,
-                          IsModerator]
-
-    def get_queryset(self):
-        review = get_object_or_404(Reviews, pk=self.kwargs.get('review_id'))
-        queryset = review.comments.all()
-        return queryset
-
-    def perform_create(self, serializer):
-        review = get_object_or_404(Reviews, pk=self.kwargs.get('review_id'))
-        serializer.save(author=self.request.user,
-                        review=review)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Reviews.objects.all()
     serializer_class = ReviewSerializer
-    permission_classes = [
-        IsAuthenticatedOrReadOnly,
-        IsAdmin,
-        IsModerator,
-        IsAuthorOrReadOnly,
-    ]
-    filter_backends = [SearchFilter]
-    search_fields = ['text', ]
+    permission_classes = [IsAuthenticatedOrReadOnly & (IsAuthorOrReadOnly | IsModerator | IsAdmin)]
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+    def get_queryset(self):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        return self.queryset.filter(title=title)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        title_id = self.kwargs.get('title_id')
+        title = get_object_or_404(Title, pk=title_id)
+        if Reviews.objects.filter(title=title, author=request.user).exists():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        serializer.save(author=request.user, title=title)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentsSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly & (IsAuthorOrReadOnly | IsModerator | IsAdmin)]
+
+    def get_queryset(self):
+        title = get_object_or_404(Title, pk=self.kwargs.get('title_id'))
+        review = get_object_or_404(Reviews, pk=self.kwargs.get('review_id'), title=title)
+        queryset = review.comments.all()
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        title_id = self.kwargs.get('title_id')
+        title = get_object_or_404(Title, pk=title_id)
+        review_id = self.kwargs.get('review_id')
+        review = get_object_or_404(Reviews, pk=review_id, title=title)
+
+        serializer.save(author=request.user, review=review)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
