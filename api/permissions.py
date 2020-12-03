@@ -1,5 +1,5 @@
 from rest_framework import permissions
-from .models import Roles
+from users.models import Roles
 
 
 class ReadOnly(permissions.BasePermission):
