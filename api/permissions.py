@@ -9,12 +9,7 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
 
 class IsAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
-        return request.user.role == 'admin'
-
-
-class IsModerator(permissions.BasePermission):
-    def has_object_permission(self, request, view, obj):
-        return request.user.role == 'moderator'
+        return request.user.role == Roles.ADMIN
 
 
 class ReadOnly(permissions.BasePermission):
